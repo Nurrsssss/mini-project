@@ -2,7 +2,7 @@
 URL configuration for sales_trading_app project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.0/topics/http/urls/
+    https://docs.djangoproject.com/en/5.1/topics/http/urls/
 Examples:
 Function views
     1. Add an import:  from my_app import views
@@ -16,37 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from django.urls import  re_path
-from rest_framework import permissions
-from drf_yasg.views import get_schema_view
-from drf_yasg import openapi
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-
-schema_view = get_schema_view(
-    openapi.Info(
-        title="Sales Trading API",
-        default_version="v1",
-        description="API documentation for Sales Trading App",
-    ),
-    public=True,
-    permission_classes=(permissions.AllowAny,),
-)
-
 
 urlpatterns = [
-    
     path('admin/', admin.site.urls),
-
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-
     path('api/users/', include('users.urls')),
     path('api/products/', include('products.urls')),
-    path('api/trading/', include('trading.urls')),
     path('api/sales/', include('sales.urls')),
-    path('api/analytics/', include('analytics.urls')),
+    path('api/trading/', include('trading.urls')),
     path('api/notifications/', include('notifications.urls')),
-
-    path("swagger/", schema_view.with_ui("swagger", cache_timeout=0), name="schema-swagger-ui"),
-    path("redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"),
-]
+    path('api/analytics/', include('analytics.urls')),
+    ]

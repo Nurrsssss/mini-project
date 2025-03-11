@@ -1,19 +1,22 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-class TradeConsumer(AsyncWebsocketConsumer):
+class OrderConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        await self.channel_layer.group_add("trades", self.channel_name)
+        await self.channel_layer.group_add("orders", self.channel_name)
         await self.accept()
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard("trades", self.channel_name)
+        await self.channel_layer.group_discard("orders", self.channel_name)
 
     async def receive(self, text_data):
         data = json.loads(text_data)
+        message = data.get("message", "")
+
         await self.channel_layer.group_send(
-            "trades", {"type": "trade_update", "message": data}
+            "orders",
+            {"type": "order_message", "message": message}
         )
 
-    async def trade_update(self, event):
-        await self.send(text_data=json.dumps(event))
+    async def order_message(self, event):
+        await self.send(text_data=json.dumps({"message": event["message"]}))

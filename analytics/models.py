@@ -1,18 +1,17 @@
 from django.db import models
-from sales.models import SalesOrder
+from users.models import User
 
-class TradingAnalytics(models.Model):
-    date = models.DateField(auto_now_add=True)
-    total_trades = models.PositiveIntegerField(default=0)
-    total_volume = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+class AnalyticsReport(models.Model):
+    REPORT_TYPES = [
+        ('sales', 'Sales Report'),
+        ('trading', 'Trading Report'),
+        ('profit_loss', 'Profit/Loss Report')
+    ]
+
+    report_type = models.CharField(max_length=20, choices=REPORT_TYPES)
+    generated_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    data = models.JSONField()
 
     def __str__(self):
-        return f"{self.date} - Trades: {self.total_trades}, Volume: {self.total_volume}"
-
-class RevenueReport(models.Model):
-    date = models.DateField(auto_now_add=True)
-    total_revenue = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
-    total_profit = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
-
-    def __str__(self):
-        return f"{self.date} - Revenue: {self.total_revenue}, Profit: {self.total_profit}"
+        return f"{self.get_report_type_display()} ({self.created_at})"

@@ -1,13 +1,19 @@
 from rest_framework import serializers
-from .models import SalesOrder, Discount
+from .models import SalesOrder
+from products.models import Product
 
-class DiscountSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Discount
-        fields = ["id", "name", "percentage", "active"]
 
 class SalesOrderSerializer(serializers.ModelSerializer):
+    product_id = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(), source='product', write_only=True
+    )
+
     class Meta:
         model = SalesOrder
-        fields = ["id", "customer", "product", "quantity", "price", "discount", "total_price", "status", "created_at", "processed_at"]
-        read_only_fields = ["customer", "total_price", "status", "created_at", "processed_at"]
+        fields = ['id', 'customer', 'product', 'product_id', 'quantity', 'total_price', 'created_at']
+        read_only_fields = ['customer', 'total_price']
+
+    def create(self, validated_data):
+        request = self.context['request']
+        validated_data['customer'] = request.user
+        return super().create(validated_data)

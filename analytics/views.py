@@ -1,46 +1,80 @@
-from django.db.models import Sum, Count
+from django.utils.timezone import now, timedelta
 from rest_framework import generics, permissions
+from rest_framework.response import Response
+from .models import AnalyticsReport
 from sales.models import SalesOrder
-from .models import TradingAnalytics, RevenueReport
-from .serializers import TradingAnalyticsSerializer, RevenueReportSerializer
-from django.http import HttpResponse
-import csv
-from django.shortcuts import get_object_or_404
-from django.http import HttpResponse
-from .utils import generate_report_pdf
+from trading.models import Transaction
+from users.permissions import IsAdmin
 
-def download_report_pdf(request):
-    report_data = RevenueReport.objects.all().order_by("-date")
-    return generate_report_pdf(report_data) or HttpResponse("Error generating report", status=500)
+class GenerateSalesReportView(generics.CreateAPIView):
+    """
+    Генерирует отчёт по продажам за последний месяц.
+    Доступно только администратору.
+    """
+    permission_classes = [IsAdmin]
 
-class TradingAnalyticsView(generics.ListAPIView):
-    queryset = TradingAnalytics.objects.all()
-    serializer_class = TradingAnalyticsSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    def create(self, request, *args, **kwargs):
+        last_month = now() - timedelta(days=30)
+        sales_orders = SalesOrder.objects.filter(created_at__gte=last_month)
 
-    def get_queryset(self):
-        # Calculate total trades and volume
-        return TradingAnalytics.objects.all().order_by("-date")
+        total_sales = sum(order.total_price for order in sales_orders)
+        total_orders = sales_orders.count()
 
-class RevenueReportView(generics.ListAPIView):
-    queryset = RevenueReport.objects.all()
-    serializer_class = RevenueReportSerializer
-    permission_classes = [permissions.IsAuthenticated]
+        report = AnalyticsReport.objects.create(
+            report_type='sales',
+            generated_by=request.user,
+            data={
+                "total_sales": total_sales,
+                "total_orders": total_orders,
+                "orders": list(sales_orders.values("id", "total_price", "created_at")),
+            }
+        )
+        return Response({"message": "Sales report generated", "data": report.data})
 
-    def get_queryset(self):
-        # Generate revenue reports dynamically
-        return RevenueReport.objects.all().order_by("-date")
+class GenerateTradingReportView(generics.CreateAPIView):
+    """
+    Генерирует отчёт по торговым сделкам за последний месяц.
+    """
+    permission_classes = [IsAdmin]
 
-def export_sales_csv(request):
-    """Generate CSV report for sales data"""
-    response = HttpResponse(content_type="text/csv")
-    response["Content-Disposition"] = 'attachment; filename="sales_report.csv"'
+    def create(self, request, *args, **kwargs):
+        last_month = now() - timedelta(days=30)
+        transactions = Transaction.objects.filter(created_at__gte=last_month)
 
-    writer = csv.writer(response)
-    writer.writerow(["Date", "Customer", "Product", "Quantity", "Total Price", "Status"])
+        total_traded_volume = sum(t.total_price for t in transactions)
+        total_transactions = transactions.count()
 
-    sales_orders = SalesOrder.objects.all()
-    for order in sales_orders:
-        writer.writerow([order.created_at, order.customer.username, order.product.name, order.quantity, order.total_price, order.status])
+        report = AnalyticsReport.objects.create(
+            report_type='trading',
+            generated_by=request.user,
+            data={
+                "total_traded_volume": total_traded_volume,
+                "total_transactions": total_transactions,
+                "transactions": list(transactions.values("id", "total_price", "created_at")),
+            }
+        )
+        return Response({"message": "Trading report generated", "data": report.data})
 
-    return response
+class GenerateProfitLossReportView(generics.CreateAPIView):
+    """
+    Генерирует отчёт о прибыли и убытках.
+    """
+    permission_classes = [IsAdmin]
+
+    def create(self, request, *args, **kwargs):
+        last_month = now() - timedelta(days=30)
+        sales_revenue = sum(order.total_price for order in SalesOrder.objects.filter(created_at__gte=last_month))
+        trading_profit = sum(transaction.total_price for transaction in Transaction.objects.filter(created_at__gte=last_month))
+
+        profit_loss = sales_revenue + trading_profit
+
+        report = AnalyticsReport.objects.create(
+            report_type='profit_loss',
+            generated_by=request.user,
+            data={
+                "sales_revenue": sales_revenue,
+                "trading_profit": trading_profit,
+                "total_profit_loss": profit_loss,
+            }
+        )
+        return Response({"message": "Profit/Loss report generated", "data": report.data})
